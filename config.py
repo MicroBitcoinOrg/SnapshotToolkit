@@ -1,0 +1,4 @@
+BLOCKCHAIN_DIR = '~/.microbitcoin'
+SNAPSHOT_DIR = './snapshot'
+SNAPSHOT_START = 525001
+SNAPSHOT_END = 112263
