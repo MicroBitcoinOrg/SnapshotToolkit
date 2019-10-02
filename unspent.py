@@ -23,7 +23,10 @@ def decode_height(val: bytearray) -> int:
 def decode_txid(key: bytearray) -> str:
 	assert key[0] == 67
 	txid = binascii.hexlify(key[1:33][::-1]).decode('utf8')
-	return txid
+	compressed_vout = key[33:]
+	vout, declen = decode_varint(compressed_vout)
+	assert declen == len(compressed_vout)
+	return txid, vout
 
 def locate_db(path: str) -> str:
 	datadir = os.path.expanduser(path)
@@ -41,16 +44,19 @@ def decrypt(ciphertext: bytearray, key: bytearray):
 def get_unspent(path: str, snapshot_start: str, snapshot_end: str):
 	conn = leveldb.LevelDB(locate_db(path))
 	secret = get_obfuscate_key(conn)
-	result = []
+	result = {}
 
 	for k, v in conn.RangeIter(b'C', b'D', include_value=True):
 		decrypt(v, secret)
-		txid = decode_txid(k)
+		txid, vout = decode_txid(k)
 		height = decode_height(v)
 		if height > snapshot_start and height < snapshot_end:
-			result.append(txid)
+			if txid not in result:
+				result[txid] = [vout]
+			else:
+				result[txid].append(vout)
 
-	return list(set(result))
+	return result
 
 data = get_unspent(config.BLOCKCHAIN_DIR, config.SNAPSHOT_START, config.SNAPSHOT_END)
 with open('{}/unspent.json'.format(config.SNAPSHOT_DIR), 'w') as file:

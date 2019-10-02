@@ -9,7 +9,10 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
+from pyblake2 import blake2b
 from binascii import hexlify
+import groestlcoin_hash
+import rainforest_hash
 import hashlib
 import struct
 
@@ -24,6 +27,21 @@ def btc_ripemd160(data):
 def double_sha256(data):
     return hashlib.sha256(hashlib.sha256(data).digest()).digest()
 
+def blake2b_hash(x):
+    '''Simple wrapper of hashlib blake2b.'''
+    h = blake2b(digest_size=32)
+    h.update(x)
+    return h.digest()
+
+
+def groestl_hash(x):
+    '''Simple wrapper of groestl hash.'''
+    return groestlcoin_hash.getHash(x, len(x))
+
+
+def rainforest_hash_v1(x):
+    '''Simple wrapper of rainforest v1 hash.'''
+    return rainforest_hash.get(x, len(x))
 
 def format_hash(hash_):
     return str(hexlify(hash_[::-1]).decode("utf-8"))

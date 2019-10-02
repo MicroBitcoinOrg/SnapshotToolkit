@@ -68,6 +68,15 @@ class BlockHeader(object):
         return self._timestamp
 
     @property
+    def raw_timestamp(self):
+        """Returns the timestamp of the block as a UTC datetime object"""
+        if self._timestamp is None:
+            self._timestamp = datetime.utcfromtimestamp(
+                decode_uint32(self.hex[68:72])
+            )
+        return int(decode_uint32(self.hex[68:72]))
+
+    @property
     def bits(self):
         """Returns the bits (difficulty target) of the block"""
         if self._bits is None:

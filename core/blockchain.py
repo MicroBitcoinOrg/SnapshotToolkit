@@ -22,7 +22,8 @@ from .utils import format_hash
 
 
 # Constant separating blocks in the .blk files
-BITCOIN_CONSTANT = b"\x0a\x0a\x0a\x0a"
+BITCOIN_CONSTANT_OLD = b"\xf9\xbe\xb4\xd9"
+BITCOIN_CONSTANT = b"\x4d\x42\x43\x76"
 
 
 def get_files(path):
@@ -54,12 +55,12 @@ def get_blocks(blockfile):
         offset = 0
         block_count = 0
         while offset < (length - 4):
-            if raw_data[offset:offset + 4] == BITCOIN_CONSTANT:
+            if raw_data[offset:offset+4] == BITCOIN_CONSTANT or raw_data[offset:offset+4] == BITCOIN_CONSTANT_OLD:
                 offset += 4
-                size = struct.unpack("<I", raw_data[offset:offset + 4])[0]
+                size = struct.unpack("<I", raw_data[offset:offset+4])[0]
                 offset += 4 + size
                 block_count += 1
-                yield raw_data[offset - size:offset]
+                yield raw_data[offset-size:offset]
             else:
                 offset += 1
         raw_data.close()
@@ -88,6 +89,7 @@ class Blockchain(object):
         without ordering them according to height.
         """
         for blk_file in get_files(self.path):
+            print('Reading file {}'.format(blk_file))
             for raw_block in get_blocks(blk_file):
                 yield Block(raw_block)
 
@@ -105,7 +107,7 @@ class Blockchain(object):
             self.indexPath = index
         return self.blockIndexes
 
-    def _index_confirmed(self, chain_indexes, num_confirmations=6):
+    def _index_confirmed(self, chain_indexes, num_confirmations=200):
         """Check if the first block index in "chain_indexes" has at least
         "num_confirmation" (6) blocks built on top of it.
         If it doesn't it is not confirmed and is an orphan.
@@ -115,18 +117,22 @@ class Blockchain(object):
         # as soon as there an element of length num_confirmations,
         # we can make a decision about whether or not the block in question
         # is confirmed by checking if it's hash is in that list
+
+        print('Running _index_confirmed')
         chains = []
         # this is the block in question
         first_block = None
 
         # loop through all future blocks
         for i, index in enumerate(chain_indexes):
+            # print('Processig {}:{}'.format(i, index))
             # if this block doesn't have data don't confirm it
             if index.file == -1 or index.data_pos == -1:
                 return False
 
             # parse the block
             blkFile = os.path.join(self.path, "blk%05d.dat" % index.file)
+            # print('Search for confirmed: reading {}'.format("blk%05d.dat" % index.file))
             block = Block(get_block(blkFile, index.data_pos))
 
             if i == 0:
@@ -159,14 +165,17 @@ class Blockchain(object):
 
         if cache and os.path.exists(cache):
             # load the block index cache from a previous index
+            print('Load the block index cache from a previous index...')
             with open(cache, 'rb') as f:
                 blockIndexes = pickle.load(f)
 
         if blockIndexes is None:
             # build the block index
+            print('Build the block index...')
             blockIndexes = self.__getBlockIndexes(index)
             if cache and not os.path.exists(cache):
                 # cache the block index for re-use next time
+                print('Cache the block index for re-use next time...')
                 with open(cache, 'wb') as f:
                     pickle.dump(blockIndexes, f)
 
@@ -180,30 +189,35 @@ class Blockchain(object):
         # it (6 confirmations).
         orphans = []  # hold blocks that are orphans with < 6 blocks on top
         last_height = -1
+
+        print('Remove small forks...')
+
         for i, blockIdx in enumerate(blockIndexes):
             if last_height > -1:
                 # if this block is the same height as the last block an orphan
                 # occurred, now we have to figure out which of the two to keep
                 if blockIdx.height == last_height:
-
                     # loop through future blocks until we find a chain 6 blocks
                     # long that includes this block. If we can't find one
                     # remove this block as it is invalid
+                    print('Loop through future blocks until we find a chain 6 blocks!')
                     if self._index_confirmed(blockIndexes[i:]):
-
                         # if this block is confirmed, the unconfirmed block is
                         # the previous one. Remove it.
+                        print('If this block is confirmed, the unconfirmed block is the previous one. Remove it!')
                         orphans.append(blockIndexes[i - 1].hash)
                     else:
-
                         # if this block isn't confirmed, remove it.
+                        print('Block {} isn\'t confirmed, remove it!'.format(blockIndexes[i].hash))
                         orphans.append(blockIndexes[i].hash)
 
             last_height = blockIdx.height
+            print('Last height: #{}'.format(last_height))
 
         # filter out the orphan blocks, so we are left only with block indexes
         # that have been confirmed
         # (or are new enough that they haven't yet been confirmed)
+        print('Filter out the orphan blocks...')
         blockIndexes = list(filter(lambda block: block.hash not in orphans, blockIndexes))
 
         if end is None:
@@ -218,4 +232,5 @@ class Blockchain(object):
             if blkIdx.file == -1 or blkIdx.data_pos == -1:
                 break
             blkFile = os.path.join(self.path, "blk%05d.dat" % blkIdx.file)
+            print('Reading block file #{}'.format("blk%05d.dat" % blkIdx.file))
             yield Block(get_block(blkFile, blkIdx.data_pos), blkIdx.height)

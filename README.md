@@ -16,14 +16,18 @@ python3 parser.py
 
 Minify repeating UTXO set for each address into 1 record and save it to `snapshot/utxo.json` file.
 ```
-python3 parser.py
+python3 minify.py
 ```
-
-Keep in mind that depending on UTXO set site this process may take couple hours :)
 
 ### Libraries
 
-This toolset is based on following libraries:
+This toolkit is based on following libraries:
 
 - [python-bitcoin-blockchain-parser](https://github.com/alecalve/python-bitcoin-blockchain-parser) by @alecalve (GNU Lesser General Public License v3)
 - [utxodump](https://github.com/eklitzke/utxodump) by @eklitzke (GNU General Public License v3)
+
+Also it requires following hashing libraries to operate:
+
+- [groestlcoin_hash](https://pypi.org/project/groestlcoin_hash/)
+- [RainforestPython](https://github.com/MicroBitcoinOrg/RainforestPython)
+- [pyblake2](https://github.com/dchest/pyblake2)

@@ -11,7 +11,7 @@
 
 from .transaction import Transaction
 from .block_header import BlockHeader
-from .utils import format_hash, decode_varint, double_sha256
+from .utils import format_hash, decode_varint, double_sha256, groestl_hash, rainforest_hash_v1, blake2b_hash
 
 
 def get_block_transactions(raw_hex):
@@ -66,8 +66,19 @@ class Block(object):
     @property
     def hash(self):
         """Returns the block's hash (double sha256 of its 80 bytes header"""
+        MBC = 1527625482
+        RAINFOREST = 1551835197
+        BLAKE = 1557220606
         if self._hash is None:
-            self._hash = format_hash(double_sha256(self.hex[:80]))
+            if self.header.raw_timestamp > MBC and self.header.raw_timestamp < RAINFOREST:
+                self._hash = format_hash(groestl_hash(self.hex[:80]))
+            elif self.header.raw_timestamp >= RAINFOREST and self.header.raw_timestamp < BLAKE:
+                self._hash = format_hash(rainforest_hash_v1(self.hex[:80]))
+            elif self.header.raw_timestamp >= BLAKE:
+                self._hash = format_hash(blake2b_hash(self.hex[:80]))
+            else:
+                self._hash = format_hash(double_sha256(self.hex[:80]))
+
         return self._hash
 
     @property
